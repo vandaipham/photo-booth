@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Camera, RefreshCcw, Download, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
+import { Camera, RefreshCcw, Download, CheckCircle, Loader2, AlertCircle, User, Phone } from 'lucide-react';
 
 export default function App() {
   const [step, setStep] = useState('welcome'); // 'welcome', 'camera', 'processing', 'result'
@@ -11,6 +11,8 @@ export default function App() {
   // Camera selection state
   const [devices, setDevices] = useState([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState('');
+  const [userName, setUserName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -181,10 +183,19 @@ export default function App() {
   const handleDownload = () => {
     if (!finalImage) return;
     
+    if (!userName.trim() || !phoneNumber.trim()) {
+      showToast("Please enter your name and phone number to save.");
+      return;
+    }
+
+    // Sanitize the name and phone number to remove any weird characters for the filename
+    const safeName = userName.trim().replace(/[^a-z0-9]/gi, '_');
+    const safePhone = phoneNumber.trim().replace(/[^a-z0-9]/gi, '_');
+    
     // Create a temporary link element to trigger the download
     const link = document.createElement('a');
     link.href = finalImage;
-    link.download = `Metropolia_PhotoBooth_${new Date().getTime()}.jpg`;
+    link.download = `Metropolia_${safeName}_${safePhone}.jpg`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -196,6 +207,8 @@ export default function App() {
     setPhotos([]);
     setFinalImage(null);
     setSelectedDeviceId(''); // Reset camera selection
+    setUserName('');
+    setPhoneNumber('');
     setStep('welcome');
   };
 
@@ -318,7 +331,35 @@ export default function App() {
                 />
               </div>
 
-              <div className="w-full mb-4">
+              <div className="w-full bg-gray-50 p-4 rounded-xl border border-gray-100 mb-6 shadow-sm">
+                <h3 className="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wider text-left">Save Your Photo</h3>
+                <div className="space-y-3 mb-4">
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <User className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      value={userName}
+                      onChange={(e) => setUserName(e.target.value)}
+                      placeholder="Your Name"
+                      className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#f25c27] focus:border-transparent outline-none transition-all"
+                    />
+                  </div>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Phone className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="Phone Number"
+                      className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#f25c27] focus:border-transparent outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
                 <button
                   onClick={handleDownload}
                   className="w-full py-4 bg-[#f25c27] hover:bg-[#d94a1a] text-white rounded-xl font-bold text-lg shadow-lg shadow-orange-500/30 transition-all transform hover:-translate-y-1 active:translate-y-0 flex items-center justify-center"
