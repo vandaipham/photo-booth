@@ -29,7 +29,8 @@ export default function App() {
       const initCamera = async () => {
         try {
           // Configure constraints based on whether a specific camera was selected
-          const videoConstraints = { width: { ideal: 1280 }, height: { ideal: 720 } };
+          // Increased to 1080p for a higher quality capture
+          const videoConstraints = { width: { ideal: 1920 }, height: { ideal: 1080 } };
           if (selectedDeviceId) {
             videoConstraints.deviceId = { exact: selectedDeviceId };
           } else {
@@ -205,10 +206,11 @@ export default function App() {
     >
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
 
-      <div className="relative z-10 w-full max-w-md bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl overflow-hidden border border-white/20">
+      {/* Widened container to max-w-xl for a bigger preview size */}
+      <div className="relative z-10 w-full max-w-xl bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl overflow-hidden border border-white/20">
         
         <div className="bg-[#f25c27] p-6 text-center text-white">
-          <h1 className="text-3xl font-extrabold tracking-tight">Metropolia</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight">Metropolia Vietnam</h1>
           <p className="text-orange-100 text-sm font-medium mt-1 uppercase tracking-wider">Photo Booth</p>
         </div>
 
@@ -259,7 +261,7 @@ export default function App() {
               )}
 
               {cameraError ? (
-                <div className="w-full aspect-[3/4] bg-gray-100 rounded-2xl flex flex-col items-center justify-center p-6 text-center border-2 border-dashed border-red-300">
+                <div className="w-full aspect-[4/3] bg-gray-100 rounded-2xl flex flex-col items-center justify-center p-6 text-center border-2 border-dashed border-red-300">
                   <AlertCircle className="w-10 h-10 text-red-500 mb-3" />
                   <p className="text-red-600 font-medium">{cameraError}</p>
                   <button 
@@ -270,7 +272,7 @@ export default function App() {
                   </button>
                 </div>
               ) : (
-                <div className="relative w-full aspect-[3/4] bg-black rounded-2xl overflow-hidden shadow-inner group">
+                <div className="relative w-full aspect-[4/3] bg-black rounded-2xl overflow-hidden shadow-inner group">
                   <video 
                     ref={videoRef} 
                     autoPlay 
@@ -308,11 +310,11 @@ export default function App() {
 
           {step === 'result' && finalImage && (
             <div className="flex flex-col items-center animate-fade-in">
-              <div className="w-full max-h-[50vh] overflow-hidden rounded-xl border-4 border-gray-100 shadow-md mb-6 bg-gray-50">
+              <div className="w-full max-h-[70vh] overflow-hidden rounded-xl border-4 border-gray-100 shadow-md mb-6 bg-gray-50 flex justify-center">
                 <img 
                   src={finalImage} 
                   alt="Your Photo Booth Strip" 
-                  className="w-full h-auto object-contain max-h-[50vh]"
+                  className="w-auto h-auto object-contain max-h-[70vh]"
                 />
               </div>
 
