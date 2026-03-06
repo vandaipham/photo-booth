@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  photobooth:
+    # Tells Compose to build the image using the Dockerfile in the current directory
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    
+    # Names the running container so it's easy to identify
+    container_name: metropolia-photobooth-app
+    
+    # Maps port 8080 on your laptop to port 80 (Nginx) inside the container
+    ports:
+      - "8080:80"
+      
+    # Ensures the app automatically restarts if it crashes or if your laptop restarts
+    restart: unless-stopped
