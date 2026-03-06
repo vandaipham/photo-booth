@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Camera, Mail, RefreshCcw, Send, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
+import { Camera, RefreshCcw, Download, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 
 export default function App() {
   const [step, setStep] = useState('welcome'); // 'welcome', 'camera', 'processing', 'result'
   const [photos, setPhotos] = useState([]);
   const [finalImage, setFinalImage] = useState(null);
-  const [email, setEmail] = useState('');
-  const [isSending, setIsSending] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
   const [cameraError, setCameraError] = useState(null);
 
@@ -74,8 +72,8 @@ export default function App() {
     ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     
-    // Lowered quality slightly to ensure base64 isn't too huge for email APIs
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+    // High quality for saving locally
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
     setPhotos(prev => [...prev, dataUrl]);
   };
 
@@ -100,10 +98,9 @@ export default function App() {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       
-      // Scale down the final image slightly to save email bandwidth (optional but recommended)
-      const scaleFactor = 0.8;
-      canvas.width = frameImg.width * scaleFactor;
-      canvas.height = frameImg.height * scaleFactor;
+      // Keep full resolution for downloading
+      canvas.width = frameImg.width;
+      canvas.height = frameImg.height;
 
       const w = canvas.width;
       const h = canvas.height;
@@ -149,8 +146,8 @@ export default function App() {
 
       ctx.drawImage(frameCanvas, 0, 0);
 
-      // Using 0.7 quality to keep base64 string size manageable for emails
-      setFinalImage(canvas.toDataURL('image/jpeg', 0.7));
+      // High quality export
+      setFinalImage(canvas.toDataURL('image/jpeg', 0.95));
       setStep('result');
 
     } catch (err) {
@@ -161,59 +158,23 @@ export default function App() {
     }
   };
 
-  const handleSendEmail = async (e) => {
-    e.preventDefault();
-    if (!email) {
-      showToast("Please enter an email address.");
-      return;
-    }
+  const handleDownload = () => {
+    if (!finalImage) return;
     
-    setIsSending(true);
+    // Create a temporary link element to trigger the download
+    const link = document.createElement('a');
+    link.href = finalImage;
+    link.download = `Metropolia_PhotoBooth_${new Date().getTime()}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
     
-    try {
-      const templateParams = {
-        to_email: email,           // Maps to {{to_email}} in template
-        photo_data: finalImage,    // Maps to the base64 string in template
-      };
-
-      // TODO: Replace these 3 strings with your actual EmailJS credentials
-      const SERVICE_ID = 'service_mu70w0b';
-      const TEMPLATE_ID = 'template_yxesc0k';
-      const PUBLIC_KEY = 'psN3yYX0-d09OpzY0';
-
-      const payload = {
-        service_id: SERVICE_ID,
-        template_id: TEMPLATE_ID,
-        user_id: PUBLIC_KEY,
-        template_params: templateParams
-      };
-
-      const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        throw new Error(`EmailJS error: ${response.statusText}`);
-      }
-
-      setEmail('');
-      showToast("Photo sent successfully!");
-    } catch (error) {
-      console.error('FAILED...', error);
-      showToast("Failed to send email. Check console for details.");
-    } finally {
-      setIsSending(false);
-    }
+    showToast("Photo saved successfully!");
   };
 
   const resetBooth = () => {
     setPhotos([]);
     setFinalImage(null);
-    setEmail('');
     setStep('welcome');
   };
 
@@ -317,31 +278,14 @@ export default function App() {
                 />
               </div>
 
-              <div className="w-full bg-gray-50 p-4 rounded-xl border border-gray-100 mb-6">
-                <h3 className="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wider">Send your photo</h3>
-                <form onSubmit={handleSendEmail} className="flex gap-2">
-                  <div className="relative flex-1">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Mail className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Enter your email"
-                      className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#f25c27] focus:border-transparent outline-none transition-all"
-                      required
-                      disabled={isSending}
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={isSending}
-                    className="px-5 py-3 bg-[#f25c27] hover:bg-[#d94a1a] text-white rounded-lg font-bold flex items-center justify-center disabled:opacity-70 transition-colors shadow-md"
-                  >
-                    {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                  </button>
-                </form>
+              <div className="w-full mb-4">
+                <button
+                  onClick={handleDownload}
+                  className="w-full py-4 bg-[#f25c27] hover:bg-[#d94a1a] text-white rounded-xl font-bold text-lg shadow-lg shadow-orange-500/30 transition-all transform hover:-translate-y-1 active:translate-y-0 flex items-center justify-center"
+                >
+                  <Download className="w-6 h-6 mr-2" />
+                  Save Photo to Device
+                </button>
               </div>
 
               <button 
