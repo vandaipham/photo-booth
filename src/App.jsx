@@ -7,6 +7,10 @@ export default function App() {
   const [finalImage, setFinalImage] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [cameraError, setCameraError] = useState(null);
+  
+  // Camera selection state
+  const [devices, setDevices] = useState([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState('');
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -19,19 +23,34 @@ export default function App() {
     }
   }, []);
 
-  // Initialize camera when entering 'camera' step
+  // Initialize camera when entering 'camera' step or changing camera device
   useEffect(() => {
     if (step === 'camera') {
       const initCamera = async () => {
         try {
+          // Configure constraints based on whether a specific camera was selected
+          const videoConstraints = { width: { ideal: 1280 }, height: { ideal: 720 } };
+          if (selectedDeviceId) {
+            videoConstraints.deviceId = { exact: selectedDeviceId };
+          } else {
+            videoConstraints.facingMode = "user"; // Default to front-facing/primary
+          }
+
           const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } 
+            video: videoConstraints 
           });
+          
           streamRef.current = stream;
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
           }
           setCameraError(null);
+
+          // Once permission is granted and stream is active, fetch all available camera devices
+          const allDevices = await navigator.mediaDevices.enumerateDevices();
+          const videoInputDevices = allDevices.filter(device => device.kind === 'videoinput');
+          setDevices(videoInputDevices);
+
         } catch (err) {
           console.error("Error accessing camera:", err);
           setCameraError("Unable to access the camera. Please ensure you have granted permission.");
@@ -43,7 +62,7 @@ export default function App() {
     }
 
     return () => stopCamera();
-  }, [step, stopCamera]);
+  }, [step, selectedDeviceId, stopCamera]); // Added selectedDeviceId to dependency array
 
   // Process photos when 4 are taken
   useEffect(() => {
@@ -175,6 +194,7 @@ export default function App() {
   const resetBooth = () => {
     setPhotos([]);
     setFinalImage(null);
+    setSelectedDeviceId(''); // Reset camera selection
     setStep('welcome');
   };
 
@@ -219,6 +239,24 @@ export default function App() {
                   ))}
                 </div>
               </div>
+
+              {/* CAMERA SELECTION DROPDOWN */}
+              {devices.length > 1 && !cameraError && (
+                <div className="w-full px-1">
+                  <select
+                    value={selectedDeviceId}
+                    onChange={(e) => setSelectedDeviceId(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 text-gray-700 py-2.5 px-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f25c27] text-sm font-medium transition-colors shadow-sm appearance-none cursor-pointer"
+                  >
+                    <option value="">Default Camera</option>
+                    {devices.map((device, index) => (
+                      <option key={device.deviceId} value={device.deviceId}>
+                        {device.label || `Camera ${index + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {cameraError ? (
                 <div className="w-full aspect-[3/4] bg-gray-100 rounded-2xl flex flex-col items-center justify-center p-6 text-center border-2 border-dashed border-red-300">
