@@ -69,18 +69,18 @@ export default function App() {
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
     
-    // Flip horizontally for a mirror effect (common in photo booths)
+    // Flip horizontally for a mirror effect
     ctx.translate(canvas.width, 0);
     ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    // Lowered quality slightly to ensure base64 isn't too huge for email APIs
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
     setPhotos(prev => [...prev, dataUrl]);
   };
 
   const generateFinalImage = async () => {
     try {
-      // 1. Load the frame image
       const frameImg = new Image();
       frameImg.crossOrigin = "anonymous";
       frameImg.src = 'Frame_metro.png';
@@ -89,7 +89,6 @@ export default function App() {
         frameImg.onerror = () => reject(new Error("Failed to load frame image"));
       });
 
-      // 2. Load the 4 captured photos
       const photoImgs = await Promise.all(photos.map(url => {
         return new Promise(resolve => {
           const img = new Image();
@@ -100,15 +99,15 @@ export default function App() {
 
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      canvas.width = frameImg.width;
-      canvas.height = frameImg.height;
+      
+      // Scale down the final image slightly to save email bandwidth (optional but recommended)
+      const scaleFactor = 0.8;
+      canvas.width = frameImg.width * scaleFactor;
+      canvas.height = frameImg.height * scaleFactor;
 
       const w = canvas.width;
       const h = canvas.height;
 
-      // Define bounding boxes that safely cover the black areas.
-      // We make them slightly larger than the actual black boxes.
-      // The overlapping orange frame will beautifully clip them to the exact shapes.
       const boxes = [
         { x: 0.05 * w, y: 0.07 * h, w: 0.9 * w, h: 0.20 * h },
         { x: 0.05 * w, y: 0.29 * h, w: 0.9 * w, h: 0.20 * h },
@@ -116,7 +115,6 @@ export default function App() {
         { x: 0.05 * w, y: 0.73 * h, w: 0.9 * w, h: 0.20 * h },
       ];
 
-      // 3. Draw photos with "object-fit: cover" logic
       photoImgs.forEach((photo, i) => {
         const box = boxes[i];
         const imgRatio = photo.width / photo.height;
@@ -134,28 +132,25 @@ export default function App() {
         ctx.drawImage(photo, sx, sy, sw, sh, box.x, box.y, box.w, box.h);
       });
 
-      // 4. Process the frame to make black pixels transparent
       const frameCanvas = document.createElement('canvas');
       frameCanvas.width = canvas.width;
       frameCanvas.height = canvas.height;
       const fCtx = frameCanvas.getContext('2d');
-      fCtx.drawImage(frameImg, 0, 0);
+      fCtx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
 
       const imgData = fCtx.getImageData(0, 0, frameCanvas.width, frameCanvas.height);
       const data = imgData.data;
       for (let i = 0; i < data.length; i += 4) {
-        // If the pixel is very dark (black or close to it), make it fully transparent
         if (data[i] < 20 && data[i + 1] < 20 && data[i + 2] < 20) {
-          data[i + 3] = 0; // Alpha channel
+          data[i + 3] = 0;
         }
       }
       fCtx.putImageData(imgData, 0, 0);
 
-      // 5. Draw the processed frame OVER the photos
       ctx.drawImage(frameCanvas, 0, 0);
 
-      // Save result
-      setFinalImage(canvas.toDataURL('image/jpeg', 0.9));
+      // Using 0.7 quality to keep base64 string size manageable for emails
+      setFinalImage(canvas.toDataURL('image/jpeg', 0.7));
       setStep('result');
 
     } catch (err) {
@@ -166,7 +161,7 @@ export default function App() {
     }
   };
 
-  const handleSendEmail = (e) => {
+  const handleSendEmail = async (e) => {
     e.preventDefault();
     if (!email) {
       showToast("Please enter an email address.");
@@ -175,12 +170,44 @@ export default function App() {
     
     setIsSending(true);
     
-    // Simulate an API call to send the email
-    setTimeout(() => {
-      setIsSending(false);
+    try {
+      const templateParams = {
+        to_email: email,           // Maps to {{to_email}} in template
+        photo_data: finalImage,    // Maps to the base64 string in template
+      };
+
+      // TODO: Replace these 3 strings with your actual EmailJS credentials
+      const SERVICE_ID = 'service_mu70w0b';
+      const TEMPLATE_ID = 'template_yxesc0k';
+      const PUBLIC_KEY = 'psN3yYX0-d09OpzY0';
+
+      const payload = {
+        service_id: SERVICE_ID,
+        template_id: TEMPLATE_ID,
+        user_id: PUBLIC_KEY,
+        template_params: templateParams
+      };
+
+      const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`EmailJS error: ${response.statusText}`);
+      }
+
       setEmail('');
       showToast("Photo sent successfully!");
-    }, 1500);
+    } catch (error) {
+      console.error('FAILED...', error);
+      showToast("Failed to send email. Check console for details.");
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const resetBooth = () => {
@@ -195,20 +222,16 @@ export default function App() {
       className="min-h-screen bg-cover bg-center bg-no-repeat flex items-center justify-center p-4 relative font-sans"
       style={{ backgroundImage: `url('image_ddad45.jpg')` }}
     >
-      {/* Dark overlay for better contrast */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
 
-      {/* Main App Container */}
       <div className="relative z-10 w-full max-w-md bg-white/95 backdrop-blur-md shadow-2xl rounded-3xl overflow-hidden border border-white/20">
         
-        {/* Header */}
         <div className="bg-[#f25c27] p-6 text-center text-white">
           <h1 className="text-3xl font-extrabold tracking-tight">Metropolia</h1>
           <p className="text-orange-100 text-sm font-medium mt-1 uppercase tracking-wider">Photo Booth</p>
         </div>
 
         <div className="p-6">
-          {/* STEP 1: WELCOME */}
           {step === 'welcome' && (
             <div className="text-center py-8 space-y-6">
               <div className="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
@@ -225,7 +248,6 @@ export default function App() {
             </div>
           )}
 
-          {/* STEP 2: CAMERA */}
           {step === 'camera' && (
             <div className="flex flex-col items-center space-y-4">
               <div className="w-full flex justify-between items-center mb-2 px-1">
@@ -257,7 +279,6 @@ export default function App() {
                     muted
                     className="absolute inset-0 w-full h-full object-cover transform -scale-x-100"
                   />
-                  {/* Grid Overlay Guide */}
                   <div className="absolute inset-0 pointer-events-none opacity-20 border border-white/50">
                     <div className="absolute top-1/3 w-full border-t border-white/50"></div>
                     <div className="absolute top-2/3 w-full border-t border-white/50"></div>
@@ -278,7 +299,6 @@ export default function App() {
             </div>
           )}
 
-          {/* STEP 3: PROCESSING */}
           {step === 'processing' && (
             <div className="text-center py-16 flex flex-col items-center justify-center">
               <Loader2 className="w-16 h-16 text-[#f25c27] animate-spin mb-6" />
@@ -287,7 +307,6 @@ export default function App() {
             </div>
           )}
 
-          {/* STEP 4: RESULT */}
           {step === 'result' && finalImage && (
             <div className="flex flex-col items-center animate-fade-in">
               <div className="w-full max-h-[50vh] overflow-hidden rounded-xl border-4 border-gray-100 shadow-md mb-6 bg-gray-50">
@@ -337,7 +356,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* Toast Notification */}
       {toastMessage && (
         <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-50 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center space-x-2 animate-bounce-short">
           <CheckCircle className="w-5 h-5 text-green-400" />
