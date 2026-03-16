@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Camera, RefreshCcw, Send, CheckCircle, Loader2, AlertCircle, User, Phone, Mail } from 'lucide-react';
+import { Camera, RefreshCcw, Send, CheckCircle, Loader2, AlertCircle, User, Phone, Mail, Download } from 'lucide-react';
 
 export default function App() {
   const [step, setStep] = useState('welcome');
@@ -153,7 +153,7 @@ export default function App() {
 
       ctx.drawImage(frameCanvas, 0, 0);
 
-      // Keep this at extremely high quality for local device saving
+      // Store in extremely high quality for local device saving
       setFinalImage(canvas.toDataURL('image/jpeg', 0.95)); 
       setStep('result');
 
@@ -165,11 +165,12 @@ export default function App() {
     }
   };
 
+  // ACTION 1: SEND EMAIL
   const handleSendEmail = async () => {
     if (!finalImage) return;
     
-    if (!userName.trim() || !phoneNumber.trim() || !emailAddress.trim()) {
-      showToast("Please fill in all fields to send the email.");
+    if (!emailAddress.trim()) {
+      showToast("Please enter an email address to send.");
       return;
     }
 
@@ -177,12 +178,11 @@ export default function App() {
 
     try {
       // Create a compressed version strictly for the email attachment 
-      // This prevents hitting Gmail's 25MB attachment limit.
+      // This prevents hitting Vercel's strict 4.5MB serverless payload limit.
       const emailPhotoData = await new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          // Scale it down: Max width or height of 1200px
           const maxDim = 1200;
           let scale = 1;
           if (img.width > maxDim || img.height > maxDim) {
@@ -206,7 +206,7 @@ export default function App() {
           name: userName,
           phone: phoneNumber,
           email: emailAddress,
-          photo: finalImage // Send the raw image to the server
+          photo: emailPhotoData 
         })
       });
 
@@ -215,16 +215,7 @@ export default function App() {
       }
       
       showToast("Photo sent to email successfully!");
-      
-      // Still download the full, uncompressed version to the local device
-      const safeName = userName.trim().replace(/[^a-z0-9]/gi, '_');
-      const safePhone = phoneNumber.trim().replace(/[^a-z0-9]/gi, '_');
-      const link = document.createElement('a');
-      link.href = finalImage;
-      link.download = `Metropolia_${safeName}_${safePhone}.jpg`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      setEmailAddress(''); // Clear email after successful send
 
     } catch (error) {
       console.error(error);
@@ -232,6 +223,24 @@ export default function App() {
     } finally {
       setIsSending(false);
     }
+  };
+
+  // ACTION 2: DOWNLOAD TO DEVICE
+  const handleDownload = () => {
+    if (!finalImage) return;
+    
+    // Use fallback names if the user left them blank
+    const safeName = userName.trim().replace(/[^a-z0-9]/gi, '_') || 'Guest';
+    const safePhone = phoneNumber.trim().replace(/[^a-z0-9]/gi, '_') || 'Photo';
+    
+    const link = document.createElement('a');
+    link.href = finalImage; // Uses the original, uncompressed high-quality image
+    link.download = `Metropolia_${safeName}_${safePhone}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showToast("Photo saved to device successfully!");
   };
 
   const resetBooth = () => {
@@ -364,29 +373,31 @@ export default function App() {
               <div className="w-full bg-gray-50 p-4 rounded-xl border border-gray-100 mb-6 shadow-sm">
                 <h3 className="text-sm font-bold text-gray-700 mb-3 uppercase tracking-wider text-left">Get Your Photos</h3>
                 <div className="space-y-3 mb-4">
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <User className="h-5 w-5 text-gray-400" />
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <User className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <input
+                        type="text"
+                        value={userName}
+                        onChange={(e) => setUserName(e.target.value)}
+                        placeholder="Your Name (Optional)"
+                        className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#f25c27] focus:border-transparent outline-none transition-all text-sm"
+                      />
                     </div>
-                    <input
-                      type="text"
-                      value={userName}
-                      onChange={(e) => setUserName(e.target.value)}
-                      placeholder="Your Name"
-                      className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#f25c27] focus:border-transparent outline-none transition-all"
-                    />
-                  </div>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Phone className="h-5 w-5 text-gray-400" />
+                    <div className="relative flex-1">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Phone className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <input
+                        type="tel"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        placeholder="Phone (Optional)"
+                        className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#f25c27] focus:border-transparent outline-none transition-all text-sm"
+                      />
                     </div>
-                    <input
-                      type="tel"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="Phone Number"
-                      className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#f25c27] focus:border-transparent outline-none transition-all"
-                    />
                   </div>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -397,19 +408,31 @@ export default function App() {
                       value={emailAddress}
                       onChange={(e) => setEmailAddress(e.target.value)}
                       placeholder="Email Address"
-                      className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#f25c27] focus:border-transparent outline-none transition-all"
+                      className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#f25c27] focus:border-transparent outline-none transition-all text-sm"
                     />
                   </div>
                 </div>
 
-                <button
-                  onClick={handleSendEmail}
-                  disabled={isSending}
-                  className="w-full py-4 bg-[#f25c27] hover:bg-[#d94a1a] text-white rounded-xl font-bold text-lg shadow-lg shadow-orange-500/30 transition-all transform hover:-translate-y-1 active:translate-y-0 flex items-center justify-center disabled:opacity-70 disabled:hover:translate-y-0"
-                >
-                  {isSending ? <Loader2 className="w-6 h-6 mr-2 animate-spin" /> : <Send className="w-6 h-6 mr-2" />}
-                  {isSending ? "Sending Email..." : "Send to Email & Save"}
-                </button>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  {/* Send Email Button */}
+                  <button
+                    onClick={handleSendEmail}
+                    disabled={isSending}
+                    className="flex-1 py-3 bg-[#f25c27] hover:bg-[#d94a1a] text-white rounded-xl font-bold text-sm shadow-lg shadow-orange-500/30 transition-all transform hover:-translate-y-1 active:translate-y-0 flex items-center justify-center disabled:opacity-70 disabled:hover:translate-y-0"
+                  >
+                    {isSending ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Send className="w-5 h-5 mr-2" />}
+                    {isSending ? "Sending..." : "Send to Email"}
+                  </button>
+
+                  {/* Save Local Button */}
+                  <button
+                    onClick={handleDownload}
+                    className="flex-1 py-3 bg-white border-2 border-[#f25c27] text-[#f25c27] hover:bg-orange-50 rounded-xl font-bold text-sm shadow-sm transition-all transform hover:-translate-y-1 active:translate-y-0 flex items-center justify-center"
+                  >
+                    <Download className="w-5 h-5 mr-2" />
+                    Save Photo
+                  </button>
+                </div>
               </div>
 
               <button 
